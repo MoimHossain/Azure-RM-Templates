@@ -1,10 +1,17 @@
 # Azure-RM-Templates
 
-This repository provides some samples for **Infrastructure as a Code** (using RM templates) in order to provision VM, Web Sites with Deployment slots, Virtual Networks, SQL server, Service Bus etc. The samples can be use to automate the CI process where the entire infrastructure for a typical application can be build on Azure.
+This repository provides some samples for **Infrastructure as Code** (using RM templates) in order to provision VM, Web Sites with Deployment slots, Virtual Networks, SQL server, Service Bus etc. The samples can be use to automate the CI process where the entire infrastructure for a typical application can be build on Azure.
 
 #### Requirement
 
 Before you begin, you need to have a storage account that will be used to store the RM templates before it starts deployment on Azure. Assuming the Azure Subscription is already available.
+
+The RM template script needs to login to Azure before it provision resources. please use *LoginRmAccount* CmdLet to do so.
+
+* If you have more than one Subscriptions added into the Azure CLI you may need to select the correct subscription using *Set-AzureRmContext* before running the script. (Note, Select-AzureSubscription will not do the job, as RM CmdLet seems to use it's own context).
+
+
+
 
 #### Service Bus
 
