@@ -1,0 +1,135 @@
+﻿{
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "WebsiteName": {
+      "type": "string"
+    },
+    "HostingPlanName": {
+      "type": "string"
+    },
+    "ServiceBusConnectionString": {
+      "type": "string"
+    },
+    "DevServiceBusConnectionString": {
+      "type": "string"
+    },
+    "AppInsightsKey": {
+      "type": "string"
+    },
+    "DevSlotAppInsightsKey": {
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "apiVersion": "2014-06-01",
+      "name": "[parameters('HostingPlanName')]",
+      "type": "Microsoft.Web/serverfarms",
+      "location": "[resourceGroup().location]",
+      "tags": {
+        "displayName": "HostingPlan"
+      },
+      "properties": {
+        "name": "[parameters('HostingPlanName')]",
+        "sku": "Standard",
+        "workerSize": "Medium",
+        "numberOfWorkers": 1
+      }
+    },
+    {
+      "name": "[parameters('WebsiteName')]",
+      "type": "Microsoft.Web/sites",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2014-06-01",
+      "tags": {
+        "[concat('hidden-related:', resourceGroup().id, '/providers/Microsoft.Web/serverfarms/', parameters('HostingPlanName'))]": "Resource",
+        "displayName": "PartsUnlimitedWebsite"
+      },
+      "dependsOn": [
+        "[concat('Microsoft.Web/serverfarms/', parameters('HostingPlanName'))]"
+      ],
+      "properties": {
+        "name": "[parameters('WebsiteName')]",
+        "serverFarm": "[parameters('HostingPlanName')]"
+      },
+      "resources": [
+        {
+          "name": "connectionstrings",
+          "type": "config",
+          "apiVersion": "2014-11-01",
+          "dependsOn": [
+            "[concat('Microsoft.Web/sites/', parameters('WebsiteName'))]"
+          ],
+          "properties": {
+            "Microsoft.ServiceBus.ConnectionString": {
+              "value": "[parameters('ServiceBusConnectionString')]",
+              "type": "Custom"
+            }
+          }
+        },
+        {
+          "name": "appsettings",
+          "type": "config",
+          "apiVersion": "2014-11-01",
+          "dependsOn": [
+            "[resourceId('Microsoft.Web/sites', parameters('WebsiteName'))]"
+          ],
+          "properties": {
+            "Keys:ApplicationInsights:InstrumentationKey": "[parameters('AppInsightsKey')]"
+          }
+        },
+        {
+          "name": "slotconfignames",
+          "type": "config",
+          "apiVersion": "2014-11-01",
+          "dependsOn": [
+            "[resourceId('Microsoft.Web/sites', parameters('WebsiteName'))]"
+          ],
+          "properties": {
+            "connectionStringNames": [ "defaultConnection" ],
+            "appSettingNames": [ "keys:ApplicationInsights:InstrumentationKey" ]
+          }
+        },
+        {
+          "name": "Dev",
+          "type": "slots",
+          "location": "[resourceGroup().location]",
+          "apiVersion": "2014-11-01",
+          "dependsOn": [
+            "[resourceId('Microsoft.Web/sites', parameters('WebsiteName'))]"
+          ],
+          "properties": {
+          },
+          "resources": [
+            {
+              "name": "connectionstrings",
+              "type": "config",
+              "apiVersion": "2014-11-01",
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/sites/slots', parameters('WebsiteName'), 'Dev')]"
+              ],
+              "properties": {
+                "Microsoft.ServiceBus.ConnectionString": {
+                  "value": "[parameters('DevServiceBusConnectionString')]",
+                  "type": "Custom"
+                }
+              }
+            },
+            {
+              "name": "appsettings",
+              "type": "config",
+              "apiVersion": "2014-11-01",
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/sites/slots', parameters('WebsiteName'), 'Dev')]"
+              ],
+              "properties": {
+                "Keys:ApplicationInsights:InstrumentationKey": "[parameters('DevSlotAppInsightsKey')]"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

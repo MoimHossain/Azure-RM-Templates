@@ -1,0 +1,565 @@
+﻿{
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "MyAwesomeWebAPI": {
+      "type": "string"
+    },
+    "MyAwesomeWebUI": {
+      "type": "string"
+    },
+    "HostingPlanName": {
+      "type": "string"
+    },
+    "ServiceBusConnectionString": {
+      "type": "string"
+    },
+    "ServiceBusConnectionStringStage": {
+      "type": "string"
+    },
+    "AppInsightsKey": {
+      "type": "string"
+    },
+    "DevSlotAppInsightsKey": {
+      "type": "string"
+    },
+
+
+    "sqlserverName": {
+      "type": "string"
+    },
+    "administratorLogin": {
+      "type": "string"
+    },
+    "administratorLoginPassword": {
+      "type": "securestring"
+    },
+    "databaseName": {
+      "type": "string"
+    },
+    "collation": {
+      "type": "string",
+      "defaultValue": "SQL_Latin1_General_CP1_CI_AS"
+    },
+    "edition": {
+      "type": "string",
+      "defaultValue": "Basic"
+    },
+    "maxSizeBytes": {
+      "type": "string",
+      "defaultValue": "1073741824"
+    },
+    "requestedServiceObjectiveId": {
+      "type": "string",
+      "defaultValue": "dd6d99bb-f193-4ec1-86f2-43d3bccbc49c"
+    },
+
+
+
+
+    "storageAccountName": {
+      "type": "string",
+      "metadata": {
+        "description": "Unique DNS Name for the Storage Account where the Virtual Machine's disks will be placed."
+      }
+    },
+    "storageAccountNewOrExisting": {
+      "type": "string",
+      "allowedValues": [
+        "new",
+        "existing"
+      ],
+      "metadata": {
+        "description": "Designates if a new or existing storage account"
+      }
+    },
+    "existingStorageAccountRG": {
+      "type": "string",
+      "metadata": {
+        "description": "If it's an existing storage account, what's the RG?"
+      }
+    },
+    "vnetNewOrExisting": {
+      "type": "string",
+      "metadata": {
+        "description": "Identifies whether to use new or existing Virtual Network"
+      }
+    },
+    "vnetName": {
+      "type": "string",
+      "metadata": {
+        "description": "VNet name"
+      }
+    },
+    "existingVnetRG": {
+      "type": "string",
+      "metadata": {
+        "description": "Identifies whether to use new or existing Storage Account"
+      }
+    },
+    "vnetAddressPrefix": {
+      "type": "string",
+      "metadata": {
+        "description": "Virtual Network Address prefix, 10.0.0.0/16 "
+      }
+    },
+    "Subnet1Prefix": {
+      "type": "string",
+      "metadata": {
+        "description": "Subnet 1 Prefix, eg 10.0.0.0/24 "
+      }
+    },
+    "Subnet1Name": {
+      "type": "string",
+      "metadata": {
+        "description": "Subnet 1 Name, eg subnet1 "
+      }
+    },
+    "Subnet2Prefix": {
+      "type": "string",
+      "metadata": {
+        "description": "Subnet 2 Prefix, eg 10.0.1.0/24 "
+      }
+    },
+    "Subnet2Name": {
+      "type": "string",
+      "metadata": {
+        "description": "Subnet 2 Name, eg subnet2 "
+      }
+    },
+    "adminUsername": {
+      "type": "string",
+      "metadata": {
+        "description": "Username for the Virtual Machine."
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Password for the Virtual Machine."
+      }
+    },
+
+
+
+    "WindowsVMPublicIPDNSName": {
+      "type": "string",
+      "metadata": {
+        "description": "Unique DNS Name for the Public IP used to access the Virtual Machine."
+      }
+    },
+    "ubuntuVMPublicIPDNSName": {
+      "type": "string",
+      "metadata": {
+        "description": "Unique DNS Name for the Public IP used to access the elastic search Virtual Machine."
+      }
+    }
+  },
+  "variables": {
+    "bloburl": "https://moimhpersonalstorage.blob.core.windows.net/armtemplates",
+
+    "StorageAccountUri": "[concat(variables('bloburl'),'/storageAccount-',parameters('storageAccountNewOrExisting'),'.json')]",
+    "storageAccountType": "Standard_LRS",
+    "vmStorageAccountContainerName": "vhds",
+    "vnetSetupURL": "[concat(variables('bloburl'),'/vnet-',parameters('vnetNewOrExisting'),'.json')]",
+    "publicIPAddressType": "Dynamic",
+
+
+    "windowsVMName": "WindowsMachine1",
+    "windowsVMSize": "Standard_A2",
+    "windowsVMOSDiskName": "WindowsMachineOSDisk",
+    "windowsVMPublicIPAddName": "WinMachine-PIP",
+    "windowsVMNicName": "WinMachine-NIC",
+
+    "windowsOSVersion": "2012-R2-Datacenter",
+    "windowsImagePublisher": "MicrosoftWindowsServer",
+    "windowsImageOffer": "WindowsServer",
+
+    "ubuntuOSVersion": "14.04.2-LTS",
+    "ubuntuImagePublisher": "Canonical",
+    "ubuntuImageOffer": "UbuntuServer",
+
+    "ubuntuVMName": "UbuntuMachine1",
+    "ubuntuVMSize": "Standard_A2",
+    "ubuntuVMOSDiskName": "UbuntuMachineOSDisk",
+    "ubuntuVMPublicIPAddressName": "UbuntuMachine-PIP",
+    "ubuntuVMNicName": "UbuntuMachine-NIC"
+  },
+  "resources": [
+    {
+      "name": "[parameters('sqlserverName')]",
+      "type": "Microsoft.Sql/servers",
+      "location": "[resourceGroup().location]",
+      "tags": {
+        "displayName": "SqlServer"
+      },
+      "apiVersion": "2014-04-01-preview",
+      "properties": {
+        "administratorLogin": "[parameters('administratorLogin')]",
+        "administratorLoginPassword": "[parameters('administratorLoginPassword')]"
+      },
+      "resources": [
+        {
+          "name": "[parameters('databaseName')]",
+          "type": "databases",
+          "location": "[resourceGroup().location]",
+          "tags": {
+            "displayName": "Database"
+          },
+          "apiVersion": "2014-04-01-preview",
+          "dependsOn": [
+            "[concat('Microsoft.Sql/servers/', parameters('sqlserverName'))]"
+          ],
+          "properties": {
+            "edition": "[parameters('edition')]",
+            "collation": "[parameters('collation')]",
+            "maxSizeBytes": "[parameters('maxSizeBytes')]",
+            "requestedServiceObjectiveId": "[parameters('requestedServiceObjectiveId')]"
+          }
+        },
+        {
+          "type": "firewallrules",
+          "apiVersion": "2014-04-01-preview",
+          "dependsOn": [
+            "[concat('Microsoft.Sql/servers/', parameters('sqlserverName'))]"
+          ],
+          "location": "[resourceGroup().location]",
+          "name": "AllowAllWindowsAzureIps",
+          "properties": {
+            "endIpAddress": "0.0.0.0",
+            "startIpAddress": "0.0.0.0"
+          }
+        }
+      ]
+    },
+
+
+
+    {
+      "name": "MyAwesomeWebAPI",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2015-01-01",
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[concat(variables('bloburl'),'/webAppDeployment.json')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "WebsiteName": {
+            "value": "[parameters('MyAwesomeWebAPI')]"
+          },
+          "HostingPlanName": {
+            "value": "[parameters('HostingPlanName')]"
+          },
+          "ServiceBusConnectionString": {
+            "value": "[parameters('ServiceBusConnectionString')]"
+          },
+          "DevServiceBusConnectionString": {
+            "value": "[parameters('ServiceBusConnectionStringStage')]"
+          },
+          "AppInsightsKey": {
+            "value": "[concat('Data Source=tcp:', reference(concat('Microsoft.Sql/servers/', parameters('sqlserverName'))).fullyQualifiedDomainName, ',1433;Initial Catalog=', parameters('databaseName'), ';User Id=', parameters('administratorLogin'), '@', parameters('sqlserverName'), ';Password=', parameters('administratorLoginPassword'), ';')]"
+          },
+          "DevSlotAppInsightsKey": {
+            "value": "[parameters('DevSlotAppInsightsKey')]"
+          }
+        }
+      }
+    },
+    {
+      "name": "MyAwesomeWebUI",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2015-01-01",
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'MyAwesomeWebAPI')]"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[concat(variables('bloburl'),'/webAppDeployment.json')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "WebsiteName": {
+            "value": "[parameters('MyAwesomeWebUI')]"
+          },
+          "HostingPlanName": {
+            "value": "[parameters('HostingPlanName')]"
+          },
+          "ServiceBusConnectionString": {
+            "value": "[parameters('ServiceBusConnectionString')]"
+          },
+          "DevServiceBusConnectionString": {
+            "value": "[parameters('ServiceBusConnectionStringStage')]"
+          },
+          "AppInsightsKey": {
+            "value": "[parameters('AppInsightsKey')]"
+          },
+          "DevSlotAppInsightsKey": {
+            "value": "[parameters('DevSlotAppInsightsKey')]"
+          }
+        }
+      }
+    },
+
+    {
+      "name": "VirtualNetwork",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2015-01-01",
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('vnetSetupURL')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "vnetName": {
+            "value": "[parameters('vnetName')]"
+          },
+          "vnetAddressPrefix": {
+            "value": "[parameters('vnetAddressPrefix')]"
+          },
+          "Subnet1Name": {
+            "value": "[parameters('Subnet1Name')]"
+          },
+          "Subnet1Prefix": {
+            "value": "[parameters('Subnet1Prefix')]"
+          },
+          "Subnet2Name": {
+            "value": "[parameters('Subnet2Name')]"
+          },
+          "Subnet2Prefix": {
+            "value": "[parameters('Subnet2Prefix')]"
+          },
+          "existingVnetRG": {
+            "value": "[parameters('existingVnetRG')]"
+          }
+        }
+      }
+    },
+    {
+      "name": "StorageAccount",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2015-01-01",
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('StorageAccountUri')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "location": {
+            "value": "[resourceGroup().location]"
+          },
+          "storageAccountType": {
+            "value": "[variables('storageAccountType')]"
+          },
+          "storageAccountName": {
+            "value": "[parameters('storageAccountName')]"
+          },
+          "storageAccountExistingRG": {
+            "value": "[parameters('existingStorageAccountRG')]"
+          }
+        }
+      }
+    },
+
+
+    {
+      "apiVersion": "2015-06-15",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('windowsVMPublicIPAddName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "publicIPAllocationMethod": "[variables('publicIPAddressType')]",
+        "dnsSettings": {
+          "domainNameLabel": "[parameters('WindowsVMPublicIPDNSName')]"
+        }
+      }
+    },
+    {
+      "apiVersion": "2015-06-15",
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[variables('windowsVMNicName')]",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[concat('Microsoft.Resources/deployments/', 'VirtualNetwork')]",
+        "[concat('Microsoft.Network/publicIPAddresses/', variables('windowsVMPublicIPAddName'))]"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses',variables('windowsVMPublicIPAddName'))]"
+              },
+              "subnet": {
+                "id": "[concat(reference('VirtualNetwork').outputs.vnetID.value,'/subnets/', parameters('Subnet1Name'))]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "2015-06-15",
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[variables('windowsVMName')]",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[concat('Microsoft.Resources/deployments/', 'StorageAccount')]",
+        "[concat('Microsoft.Network/networkInterfaces/', variables('windowsVMNicName'))]"
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[variables('windowsVMSize')]"
+        },
+        "osProfile": {
+          "computerName": "[variables('windowsVMName')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('windowsImagePublisher')]",
+            "offer": "[variables('windowsImageOffer')]",
+            "sku": "[variables('windowsOSVersion')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "name": "osdisk",
+            "vhd": {
+              "uri": "[concat('http://',parameters('storageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/',variables('windowsVMOSDiskName'),'.vhd')]"
+            },
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces',variables('windowsVMNicName'))]"
+            }
+          ]
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": "true",
+            "storageUri": "[concat('http://',parameters('storageAccountName'),'.blob.core.windows.net')]"
+          }
+        }
+      }
+    },
+
+    {
+      "apiVersion": "2015-06-15",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('ubuntuVMPublicIPAddressName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "publicIPAllocationMethod": "[variables('publicIPAddressType')]",
+        "dnsSettings": {
+          "domainNameLabel": "[parameters('ubuntuVMPublicIPDNSName')]"
+        }
+      }
+    },
+    {
+      "apiVersion": "2015-06-15",
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[variables('ubuntuVMNicName')]",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[concat('Microsoft.Resources/deployments/', 'VirtualNetwork')]",
+        "[concat('Microsoft.Network/publicIPAddresses/', variables('ubuntuVMPublicIPAddressName'))]"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses',variables('ubuntuVMPublicIPAddressName'))]"
+              },
+              "subnet": {
+                "id": "[concat(reference('VirtualNetwork').outputs.vnetID.value,'/subnets/', parameters('Subnet1Name'))]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "2015-06-15",
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[variables('ubuntuVMName')]",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[concat('Microsoft.Resources/deployments/', 'StorageAccount')]",
+        "[concat('Microsoft.Network/networkInterfaces/', variables('ubuntuVMNicName'))]"
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[variables('ubuntuVMSize')]"
+        },
+        "osProfile": {
+          "computerName": "[variables('ubuntuVMName')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('ubuntuImagePublisher')]",
+            "offer": "[variables('ubuntuImageOffer')]",
+            "sku": "[variables('ubuntuOSVersion')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "name": "osdisk",
+            "vhd": {
+              "uri": "[concat('http://',parameters('storageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/',variables('ubuntuVMOSDiskName'),'.vhd')]"
+            },
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces',variables('ubuntuVMNicName'))]"
+            }
+          ]
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": "true",
+            "storageUri": "[concat('http://',parameters('storageAccountName'),'.blob.core.windows.net')]"
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "name": "[concat(variables('ubuntuVMName'),'/installcustomscript')]",
+      "apiVersion": "2015-06-15",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[concat('Microsoft.Compute/virtualMachines/', variables('ubuntuVMName'))]"
+      ],
+      "properties": {
+        "publisher": "Microsoft.OSTCExtensions",
+        "type": "CustomScriptForLinux",
+        "typeHandlerVersion": "1.4",
+        "settings": {
+          "fileUris": [
+            "http://exactsalesorderdev.blob.core.windows.net/moimhossain/provision4.sh"
+          ],
+          "commandToExecute": " sh provision4.sh"
+        }
+      }
+    }
+  ]
+}
