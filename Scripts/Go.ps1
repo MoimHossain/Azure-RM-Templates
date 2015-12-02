@@ -1,12 +1,16 @@
-﻿
+﻿#  (Get-Content .\main.parameters.json) -join "`n" | ConvertFrom-Json
+# foreach($p in  ($json.parameters.PSObject.Members | ?{ $_.MemberType -eq 'NoteProperty'})) {  $p.Name + "<----------------->" +  $p.Value.value }
+
+
 Param(
     [string] $ResourceGroupLocation = 'West Europe',
     [string] $ResourceGroupName = 'MH-App-Resources',
-    [string] $TemplateFile = '..\Templates\main.json',
-	[string] $TemplateParametersFile = '..\Templates\main.parameters.json',
+    [string] $TemplateFile = '..\Templates\main.json',	
 	[string] $ServiceBusName = 'MyAwesome-ServiceBus',
 	[string] $StorageAccountName = "moimhpersonalstorage",
-	[string] $ContainerName = "armtemplates" 
+	[string] $ContainerName = "armtemplates",
+	[string] $ParameterContainer = "armparameters",
+	[string] $ParameterResourceName = "main.parameters.json"
 )
 
 Clear
@@ -26,7 +30,25 @@ Write-Host "$ServiceBusName " -ForegroundColor Green
 Write-Host " "
 Write-Host " "
 
-Invoke-Expression ".\Storage.ps1 -StorageAccountName $StorageAccountName -ContainerName $ContainerName -Directory ..\Templates" 
+Invoke-Expression ".\UploadRMTemplates.ps1 -StorageAccountName $StorageAccountName -ContainerName $ContainerName -Directory ..\Templates" 
+
+
+$OptionalParameters = New-Object -TypeName System.Collections.Hashtable
+$TemplateFile = [System.IO.Path]::Combine($PSScriptRoot, $TemplateFile)
+
+# Download the parameters
+Invoke-Expression ".\DownloadParameters.ps1 -StorageAccountName $StorageAccountName -ContainerName $ParameterContainer -ResourceName $ParameterResourceName -Directory ..\Templates" 
+$TemplateParametersFile = '..\Templates\' + $ParameterResourceName
+$JsonParameters = (Get-Content $TemplateParametersFile) -join "`n" | ConvertFrom-Json
+foreach($parameterObject in  ($JsonParameters.parameters.PSObject.Members | ?{ $_.MemberType -eq 'NoteProperty'})) 
+{  
+	Write-Host $parameterObject.Name + ' ----- > ' + $parameterObject.Value.value
+	$OptionalParameters[$parameterObject.Name] = $parameterObject.Value.value
+}
+
+
+
+
 
 Import-Module Azure -ErrorAction SilentlyContinue
 
@@ -57,10 +79,6 @@ try {
 
 Set-StrictMode -Version 3
 
-$OptionalParameters = New-Object -TypeName Hashtable
-$TemplateFile = [System.IO.Path]::Combine($PSScriptRoot, $TemplateFile)
-
-
 
 $serviceBusConnectionStrings = @{
 									"Prod"=$(Create-AzureServiceBusQueue $ServiceBusName $ResourceGroupLocation);
@@ -75,18 +93,18 @@ New-AzureRmResourceGroup -Name $ResourceGroupName -Location $ResourceGroupLocati
 New-AzureRmResourceGroupDeployment -Name ((Get-ChildItem $TemplateFile).BaseName + '-' + ((Get-Date).ToUniversalTime()).ToString('MM-dd-HH-mm')) `
                                    -ResourceGroupName $ResourceGroupName `
                                    -TemplateFile $TemplateFile `
-								   -TemplateParameterFile $TemplateParametersFile `
+								   @OptionalParameters `
 								   -ServiceBusConnectionString $($serviceBusConnectionStrings.Prod) `
-								   -ServiceBusConnectionStringStage $($serviceBusConnectionStrings.Stage) `
-                                   @OptionalParameters `
+								   -ServiceBusConnectionStringStage $($serviceBusConnectionStrings.Stage) `                                   
                                    -Force -Verbose
+
+
+
 
 Write-Host " "
 Write-Host " "
 Write-Host "Operation completed at" (Get-Date) -ForegroundColor DarkYellow
 Write-Host "___________________________________________________________________________" -ForegroundColor DarkYellow
 Write-Host " "
-
-
 
 

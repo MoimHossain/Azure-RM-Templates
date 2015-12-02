@@ -25,14 +25,18 @@
   <Import Condition=" Exists('$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Deployment\1.1\DeploymentProject.targets') " Project="$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Deployment\1.1\DeploymentProject.targets" />
   <!-- vertag<:>end -->
   <ItemGroup>
+    <None Include=".gitignore" />
+    <None Include="AzureRMTemplates.sln" />
     <None Include="bash\provision4.sh" />
     <None Include="Deployment.targets">
       <Visible>False</Visible>
     </None>
+    <None Include="LICENSE" />
+    <None Include="README.md" />
     <None Include="Scripts\Go.ps1" />
-    <None Include="Scripts\Storage.ps1" />
+    <None Include="Scripts\DownloadParameters.ps1" />
+    <None Include="Scripts\UploadRMTemplates.ps1" />
     <None Include="Templates\WebApps\webAppDeployment.json" />
-    <None Include="Templates\main.parameters.json" />
     <None Include="Templates\main.json" />
     <None Include="Templates\VirtualMachine\storageAccount-existing.json" />
     <None Include="Templates\VirtualMachine\storageAccount-new.json" />

@@ -301,8 +301,8 @@
           }
         }
       }
-    },
-
+    }/*,
+    
     {
       "name": "VirtualNetwork",
       "type": "Microsoft.Resources/deployments",
@@ -560,6 +560,6 @@
           "commandToExecute": " sh provision4.sh"
         }
       }
-    }
+    }*/
   ]
 }
