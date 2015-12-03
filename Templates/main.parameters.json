@@ -7,8 +7,6 @@
     "HostingPlanName": { "value": "myawesome-personal-hosting" },
     "AppInsightsKey": { "value": "SampleKey" },
     "DevSlotAppInsightsKey": { "value": "DevSampleKeyKey" },
-    "ServiceBusConnectionString": { "value": "BusConnection" },
-    "ServiceBusConnectionStringStage": { "value": "BusConnection" },
 
     "sqlserverName": { "value": "myawesome-mhp-sql-server"} ,
     "databaseName": { "value": "myawesomesqlserverdbname" },

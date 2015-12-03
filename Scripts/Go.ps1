@@ -1,7 +1,4 @@
-﻿#  (Get-Content .\main.parameters.json) -join "`n" | ConvertFrom-Json
-# foreach($p in  ($json.parameters.PSObject.Members | ?{ $_.MemberType -eq 'NoteProperty'})) {  $p.Name + "<----------------->" +  $p.Value.value }
-
-
+﻿
 Param(
     [string] $ResourceGroupLocation = 'West Europe',
     [string] $ResourceGroupName = 'MH-App-Resources',
@@ -9,45 +6,9 @@ Param(
 	[string] $ServiceBusName = 'MyAwesome-ServiceBus',
 	[string] $StorageAccountName = "moimhpersonalstorage",
 	[string] $ContainerName = "armtemplates",
-	[string] $ParameterContainer = "armparameters",
+	[string] $ParameterContainer = "securecontainer",
 	[string] $ParameterResourceName = "main.parameters.json"
 )
-
-Clear
-Write-Host " "
-Write-Host "Provisioning Infrastructure in $ResourceGroupLocation started at" (Get-Date) -ForegroundColor DarkYellow
-Write-Host "___________________________________________________________________________" -ForegroundColor DarkYellow
-Write-Host " "
-Write-Host " "
-Write-Host "Parameters " -ForegroundColor White
-Write-Host "------------------------------------------------" -ForegroundColor DarkYellow
-Write-Host "Location: " -NoNewline
-Write-Host "$ResourceGroupLocation " -ForegroundColor Green
-Write-Host "Resource Group: " -NoNewline
-Write-Host "$ResourceGroupName " -ForegroundColor Green
-Write-Host "Service Bus: " -NoNewline
-Write-Host "$ServiceBusName " -ForegroundColor Green
-Write-Host " "
-Write-Host " "
-
-Invoke-Expression ".\UploadRMTemplates.ps1 -StorageAccountName $StorageAccountName -ContainerName $ContainerName -Directory ..\Templates" 
-
-
-$OptionalParameters = New-Object -TypeName System.Collections.Hashtable
-$TemplateFile = [System.IO.Path]::Combine($PSScriptRoot, $TemplateFile)
-
-# Download the parameters
-Invoke-Expression ".\DownloadParameters.ps1 -StorageAccountName $StorageAccountName -ContainerName $ParameterContainer -ResourceName $ParameterResourceName -Directory ..\Templates" 
-$TemplateParametersFile = '..\Templates\' + $ParameterResourceName
-$JsonParameters = (Get-Content $TemplateParametersFile) -join "`n" | ConvertFrom-Json
-foreach($parameterObject in  ($JsonParameters.parameters.PSObject.Members | ?{ $_.MemberType -eq 'NoteProperty'})) 
-{  
-	Write-Host $parameterObject.Name + ' ----- > ' + $parameterObject.Value.value
-	$OptionalParameters[$parameterObject.Name] = $parameterObject.Value.value
-}
-
-
-
 
 
 Import-Module Azure -ErrorAction SilentlyContinue
@@ -72,6 +33,60 @@ Function Create-AzureServiceBusQueue($Namespace, $Location) {
 	 return $ConnectionString;
 }
 
+Function New-Line()
+{
+	Write-Host " "
+	Write-Host " "
+}
+
+
+Clear
+Write-Host " "
+Write-Host "Provisioning Infrastructure in $ResourceGroupLocation started at" (Get-Date) -ForegroundColor DarkYellow
+Write-Host "___________________________________________________________________________" -ForegroundColor DarkYellow
+New-Line
+Write-Host "Parameters " -ForegroundColor White
+Write-Host "------------------------------------------------" -ForegroundColor DarkYellow
+Write-Host "Location: " -NoNewline
+Write-Host "$ResourceGroupLocation " -ForegroundColor Green
+Write-Host "Resource Group: " -NoNewline
+Write-Host "$ResourceGroupName " -ForegroundColor Green
+Write-Host "Service Bus: " -NoNewline
+Write-Host "$ServiceBusName " -ForegroundColor Green
+New-Line
+
+
+
+Invoke-Expression ".\UploadRMTemplates.ps1 -StorageAccountName $StorageAccountName -ContainerName $ContainerName -Directory ..\Templates" 
+New-Line
+Write-Host "Successfully uploaded template files into the Blob Storage." -ForegroundColor DarkYellow
+New-Line
+
+
+$OptionalParameters = New-Object -TypeName System.Collections.Hashtable
+$TemplateFile = [System.IO.Path]::Combine($PSScriptRoot, $TemplateFile)
+
+# Download the parameters
+Invoke-Expression ".\DownloadParameters.ps1 -StorageAccountName $StorageAccountName -ContainerName $ParameterContainer -ResourceName $ParameterResourceName -Directory ..\Templates" 
+$TemplateParametersFile = '..\Templates\' + $ParameterResourceName
+$JsonParameters = (Get-Content $TemplateParametersFile) -join "`n" | ConvertFrom-Json
+remove-item -path $TemplateParametersFile -force
+foreach($parameterObject in  ($JsonParameters.parameters.PSObject.Members | ?{ $_.MemberType -eq 'NoteProperty'})) 
+{  
+	if($parameterObject.Name.ToLower().Contains("password".ToLower()) -eq $true)
+	{
+		$OptionalParameters[$parameterObject.Name] = $secure_string_pwd = convertto-securestring $parameterObject.Value.value -asplaintext -force		
+	}
+	else 
+	{
+		$OptionalParameters[$parameterObject.Name] = $parameterObject.Value.value
+	}	
+}
+New-Line
+Write-Host "Successfully loaded parameters for the template files." -ForegroundColor DarkYellow
+New-Line
+
+
 
 try {
     [Microsoft.Azure.Common.Authentication.AzureSession]::ClientFactory.AddUserAgent("VSAzureTools-$UI$($host.name)".replace(" ","_"), "2.8")
@@ -86,8 +101,7 @@ $serviceBusConnectionStrings = @{
 								}
 
 
-Write-Host " "
-Write-Host " "								
+New-Line						
 New-AzureRmResourceGroup -Name $ResourceGroupName -Location $ResourceGroupLocation -Force -ErrorAction Stop -Verbose
 
 New-AzureRmResourceGroupDeployment -Name ((Get-ChildItem $TemplateFile).BaseName + '-' + ((Get-Date).ToUniversalTime()).ToString('MM-dd-HH-mm')) `
@@ -95,16 +109,12 @@ New-AzureRmResourceGroupDeployment -Name ((Get-ChildItem $TemplateFile).BaseName
                                    -TemplateFile $TemplateFile `
 								   @OptionalParameters `
 								   -ServiceBusConnectionString $($serviceBusConnectionStrings.Prod) `
-								   -ServiceBusConnectionStringStage $($serviceBusConnectionStrings.Stage) `                                   
-                                   -Force -Verbose
+								   -ServiceBusConnectionStringStage $($serviceBusConnectionStrings.Stage) `
+								   -Force -Verbose
 
-
-
-
-Write-Host " "
-Write-Host " "
+New-Line
 Write-Host "Operation completed at" (Get-Date) -ForegroundColor DarkYellow
 Write-Host "___________________________________________________________________________" -ForegroundColor DarkYellow
-Write-Host " "
+New-Line
 
 
